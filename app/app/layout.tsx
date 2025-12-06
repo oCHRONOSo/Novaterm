@@ -50,10 +50,10 @@ function AppHeader() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <ThemeSelector type="app" />
-          <Badge variant={status === 'connected' ? 'default' : 'secondary'}>
-            {status}
+          <Badge variant={status === 'connected' ? 'default' : 'secondary'} className="flex-shrink-0">
+            {status === 'connected' ? 'Connected' : 'Disconnected'}
           </Badge>
+          <ThemeSelector type="app" />
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Logout
           </Button>

@@ -38,6 +38,19 @@ export function ConfigForms({ socket, ip, defaultTab = 'webserver' }: ConfigForm
   const [folderName, setFolderName] = useState('example');
   const [isSecure, setIsSecure] = useState(false);
 
+  // Certbot config
+  const [certDomain, setCertDomain] = useState('');
+  const [certEmail, setCertEmail] = useState('');
+  const [certWebroot, setCertWebroot] = useState('/var/www/html');
+  const [certWebserver, setCertWebserver] = useState('nginx');
+  const [revokeDomain, setRevokeDomain] = useState('');
+  const [deleteDomain, setDeleteDomain] = useState('');
+  const [infoDomain, setInfoDomain] = useState('');
+  // Upgrade config (from self-signed to Let's Encrypt)
+  const [upgradeDomain, setUpgradeDomain] = useState('');
+  const [upgradeEmail, setUpgradeEmail] = useState('');
+  const [upgradeFoldername, setUpgradeFoldername] = useState('');
+
   // WordPress config
   const [wpFolderName, setWpFolderName] = useState('example');
 
@@ -108,6 +121,10 @@ export function ConfigForms({ socket, ip, defaultTab = 'webserver' }: ConfigForm
     ]);
   };
 
+  const manageCertbot = (action: string, ...args: string[]) => {
+    runScript('configuring/manage_certbot.sh', [action, ...args]);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -125,36 +142,254 @@ export function ConfigForms({ socket, ip, defaultTab = 'webserver' }: ConfigForm
           </TabsList>
 
           <TabsContent value="webserver" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="domain">Domain</Label>
-              <Input
-                id="domain"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                placeholder="example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="folder_name">Folder Name</Label>
-              <Input
-                id="folder_name"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="example"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="secure"
-                checked={isSecure}
-                onCheckedChange={(checked) => setIsSecure(checked === true)}
-              />
-              <Label htmlFor="secure">Enable HTTPS</Label>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={() => configureWebserver('apache')}>Configure Apache</Button>
-              <Button onClick={() => configureWebserver('nginx')}>Configure Nginx</Button>
-            </div>
+            <Tabs defaultValue="config" className="w-full">
+              <TabsList>
+                <TabsTrigger value="config">Web Server</TabsTrigger>
+                <TabsTrigger value="certificates">Certificates (Certbot)</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="config" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="domain">Domain</Label>
+                  <Input
+                    id="domain"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    placeholder="example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="folder_name">Folder Name</Label>
+                  <Input
+                    id="folder_name"
+                    value={folderName}
+                    onChange={(e) => setFolderName(e.target.value)}
+                    placeholder="example"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="secure"
+                    checked={isSecure}
+                    onCheckedChange={(checked) => setIsSecure(checked === true)}
+                  />
+                  <Label htmlFor="secure">Enable HTTPS</Label>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => configureWebserver('apache')}>Configure Apache</Button>
+                  <Button onClick={() => configureWebserver('nginx')}>Configure Nginx</Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="certificates" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Obtain Certificate</h3>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="cert_domain">Domain</Label>
+                          <Input
+                            id="cert_domain"
+                            value={certDomain}
+                            onChange={(e) => setCertDomain(e.target.value)}
+                            placeholder="example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cert_email">Email</Label>
+                          <Input
+                            id="cert_email"
+                            type="email"
+                            value={certEmail}
+                            onChange={(e) => setCertEmail(e.target.value)}
+                            placeholder="admin@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="cert_webroot">Webroot Path</Label>
+                          <Input
+                            id="cert_webroot"
+                            value={certWebroot}
+                            onChange={(e) => setCertWebroot(e.target.value)}
+                            placeholder="/var/www/html"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cert_webserver">Web Server</Label>
+                          <Select value={certWebserver} onValueChange={setCertWebserver}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="nginx">Nginx</SelectItem>
+                              <SelectItem value="apache">Apache</SelectItem>
+                              <SelectItem value="standalone">Standalone</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={() => manageCertbot('obtain', certDomain, certEmail, certWebroot, certWebserver)}
+                        disabled={!certDomain || !certEmail}
+                      >
+                        Obtain Certificate
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold mb-3">Upgrade from Self-Signed</h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      If you already configured nginx with HTTPS (self-signed certificate), use this to upgrade to Let&apos;s Encrypt.
+                    </p>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="upgrade_domain">Domain</Label>
+                          <Input
+                            id="upgrade_domain"
+                            value={upgradeDomain}
+                            onChange={(e) => setUpgradeDomain(e.target.value)}
+                            placeholder="example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="upgrade_email">Email</Label>
+                          <Input
+                            id="upgrade_email"
+                            type="email"
+                            value={upgradeEmail}
+                            onChange={(e) => setUpgradeEmail(e.target.value)}
+                            placeholder="admin@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="upgrade_foldername">Folder Name (from nginx config)</Label>
+                        <Input
+                          id="upgrade_foldername"
+                          value={upgradeFoldername}
+                          onChange={(e) => setUpgradeFoldername(e.target.value)}
+                          placeholder="example (same as used in web server config)"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          The folder name you used when configuring nginx (e.g., if you used &quot;example&quot;, the config file is /etc/nginx/sites-available/example)
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={() => manageCertbot('upgrade', upgradeDomain, upgradeEmail, upgradeFoldername)}
+                        disabled={!upgradeDomain || !upgradeEmail || !upgradeFoldername}
+                        className="w-full"
+                      >
+                        Upgrade to Let&apos;s Encrypt
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold mb-3">Certificate Management</h3>
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => manageCertbot('renew')}
+                        >
+                          Renew All Certificates
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => manageCertbot('renew-test')}
+                        >
+                          Test Renewal (Dry-run)
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => manageCertbot('list')}
+                        >
+                          List Certificates
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold mb-3">Certificate Information</h3>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={infoDomain}
+                          onChange={(e) => setInfoDomain(e.target.value)}
+                          placeholder="example.com"
+                          className="flex-1"
+                        />
+                        <Button 
+                          variant="outline"
+                          onClick={() => manageCertbot('info', infoDomain)}
+                          disabled={!infoDomain}
+                        >
+                          Get Info
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold mb-3 text-destructive">Danger Zone</h3>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="revoke_domain">Revoke Certificate</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="revoke_domain"
+                            value={revokeDomain}
+                            onChange={(e) => setRevokeDomain(e.target.value)}
+                            placeholder="example.com"
+                            className="flex-1"
+                          />
+                          <Button 
+                            variant="outline"
+                            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => manageCertbot('revoke', revokeDomain)}
+                            disabled={!revokeDomain}
+                          >
+                            Revoke
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Revokes a certificate and deletes certificate files
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="delete_domain">Delete Certificate</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="delete_domain"
+                            value={deleteDomain}
+                            onChange={(e) => setDeleteDomain(e.target.value)}
+                            placeholder="example.com"
+                            className="flex-1"
+                          />
+                          <Button 
+                            variant="outline"
+                            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => manageCertbot('delete', deleteDomain)}
+                            disabled={!deleteDomain}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Deletes a certificate configuration (does not revoke)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="wordpress" className="space-y-4 mt-4">

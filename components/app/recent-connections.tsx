@@ -37,39 +37,47 @@ export function RecentConnections({ connections, onUseConnection, onConnect }: R
         {connections.length === 0 ? (
           <p className="text-sm text-muted-foreground">No recent connections</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>IP</TableHead>
-                <TableHead>Port</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Last</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {connections.map((conn) => (
-                <TableRow key={conn.id}>
-                  <TableCell>{conn.ip}</TableCell>
-                  <TableCell>{conn.port}</TableCell>
-                  <TableCell>{conn.username}</TableCell>
-                  <TableCell>{new Date(conn.lastConnection).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => onUseConnection(conn)}>
-                        Fill
-                      </Button>
-                      {onConnect && (
-                        <Button size="sm" onClick={() => onConnect(conn)}>
-                          Connect
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto -mx-6 px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[120px]">IP</TableHead>
+                  <TableHead className="min-w-[80px]">Port</TableHead>
+                  <TableHead className="min-w-[100px]">User</TableHead>
+                  <TableHead className="min-w-[180px]">Last</TableHead>
+                  <TableHead className="min-w-[140px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {connections.map((conn) => (
+                  <TableRow key={conn.id}>
+                    <TableCell className="font-mono text-xs truncate max-w-[120px]" title={conn.ip}>
+                      {conn.ip}
+                    </TableCell>
+                    <TableCell>{conn.port}</TableCell>
+                    <TableCell className="truncate max-w-[100px]" title={conn.username}>
+                      {conn.username}
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {new Date(conn.lastConnection).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => onUseConnection(conn)}>
+                          Fill
+                        </Button>
+                        {onConnect && (
+                          <Button size="sm" onClick={() => onConnect(conn)}>
+                            Connect
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

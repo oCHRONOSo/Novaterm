@@ -28,7 +28,7 @@ export default function TerminalPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <SSHConnection
           ip={ip}
           setIp={setIp}

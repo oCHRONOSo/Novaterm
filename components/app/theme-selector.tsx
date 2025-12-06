@@ -16,16 +16,15 @@ const appThemes = [
   { value: 'light', label: 'Light' },
   { value: 'dark-green', label: 'Dark Green' },
   { value: 'dark-yellow', label: 'Dark Yellow' },
-  { value: 'dark-gold', label: 'Dark Gold' },
   { value: 'dark-violet', label: 'Dark Violet' },
   { value: 'dark-warm-brown', label: 'Dark Warm Brown' },
   { value: 'dark-blue-grey', label: 'Dark Blue Grey' },
   { value: 'dark-cream-green', label: 'Dark Cream Green' },
   { value: 'sky-blue', label: 'Sky Blue' },
   { value: 'cream', label: 'Cream' },
-  { value: 'cloudy-green', label: 'Cloudy Green' },
-  { value: 'cream-grey', label: 'Cream Grey' },
+  { value: 'cream-indigo', label: 'Cream Indigo' },
   { value: 'light-violet', label: 'Light Violet' },
+  { value: 'hacker-green', label: 'Hacker Green' },
 ];
 
 // Terminal themes

@@ -55,7 +55,7 @@ export type FileEntry = {
 
 type FileBrowserProps = {
   socket: Socket | null;
-  onFileSelect: (file: FileEntry) => void;
+  onFileSelect?: (file: FileEntry) => void;
   onFileOpen: (file: FileEntry) => void;
 };
 
@@ -216,7 +216,7 @@ export function FileBrowser({ socket, onFileSelect, onFileOpen }: FileBrowserPro
 
   const handleFileClick = (file: FileEntry) => {
     setSelectedFile(file);
-    onFileSelect(file);
+    onFileSelect?.(file);
   };
 
   const handleFileDoubleClick = (file: FileEntry) => {
@@ -318,49 +318,50 @@ export function FileBrowser({ socket, onFileSelect, onFileOpen }: FileBrowserPro
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0 pb-2">
-        <div className="flex items-center justify-between">
+      <CardHeader className="flex-shrink-0 pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-lg">File Browser</CardTitle>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={goHome} title="Home">
+          <div className="flex gap-0.5 flex-wrap">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={goHome} title="Home">
               <Home className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={goUp} title="Go Up">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={goUp} title="Go Up">
               <ArrowUp className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => loadDirectory(currentPath)} title="Refresh">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => loadDirectory(currentPath)} title="Refresh">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleUpload} title="Upload">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleUpload} title="Upload">
               <Upload className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setNewItemName(''); setShowNewFolderDialog(true); }} title="New Folder">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setNewItemName(''); setShowNewFolderDialog(true); }} title="New Folder">
               <FolderPlus className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setNewItemName(''); setShowNewFileDialog(true); }} title="New File">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setNewItemName(''); setShowNewFileDialog(true); }} title="New File">
               <FilePlus className="h-4 w-4" />
             </Button>
           </div>
         </div>
         
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground overflow-x-auto">
+        <div className="flex items-center gap-0.5 text-sm text-muted-foreground overflow-x-auto scrollbar-thin pb-1">
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-6 px-1"
+            className="h-6 px-1.5 flex-shrink-0"
             onClick={() => navigateTo('/')}
           >
             /
           </Button>
           {pathParts.map((part, index) => (
-            <div key={index} className="flex items-center">
-              <ChevronRight className="h-3 w-3" />
+            <div key={index} className="flex items-center flex-shrink-0">
+              <ChevronRight className="h-3 w-3 flex-shrink-0" />
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-6 px-1"
+                className="h-6 px-1.5 truncate max-w-[100px]"
                 onClick={() => navigateTo('/' + pathParts.slice(0, index + 1).join('/'))}
+                title={part}
               >
                 {part}
               </Button>
@@ -369,7 +370,7 @@ export function FileBrowser({ socket, onFileSelect, onFileOpen }: FileBrowserPro
         </div>
 
         {/* Path input */}
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Input
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
@@ -378,10 +379,10 @@ export function FileBrowser({ socket, onFileSelect, onFileOpen }: FileBrowserPro
                 navigateTo(pathInput);
               }
             }}
-            className="h-8 text-sm"
+            className="h-8 text-sm min-w-0 flex-1"
             placeholder="Enter path..."
           />
-          <Button size="sm" variant="outline" onClick={() => navigateTo(pathInput)}>
+          <Button size="sm" variant="outline" className="h-8 px-3 flex-shrink-0" onClick={() => navigateTo(pathInput)}>
             Go
           </Button>
         </div>
@@ -559,7 +560,7 @@ export function FileBrowser({ socket, onFileSelect, onFileOpen }: FileBrowserPro
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+            <Button variant="outline" onClick={handleDelete} className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

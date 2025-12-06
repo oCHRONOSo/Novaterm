@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TerminalSection } from '@/components/app/terminal-section';
 import { ThemeSelector } from '@/components/app/theme-selector';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,21 @@ export function GlobalTerminal() {
   const [terminalTheme, setTerminalTheme] = useState<string>('');
   const [isFloating, setIsFloating] = useState(false);
   const { socket, status } = useSocket();
+  const wasConnectedRef = useRef(false);
+
+  // Automatically open terminal upon successful connection
+  useEffect(() => {
+    const isConnected = status === 'connected' || status === 'SSH connected';
+    
+    if (isConnected && !wasConnectedRef.current) {
+      // Only open if we just connected (transition from disconnected to connected)
+      setIsOpen(true);
+      wasConnectedRef.current = true;
+    } else if (!isConnected) {
+      // Reset the ref when disconnected so it can open again on next connection
+      wasConnectedRef.current = false;
+    }
+  }, [status]);
 
   return (
     <>

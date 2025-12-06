@@ -178,11 +178,11 @@ export function FileEditor({ socket, file, onClose }: FileEditorProps) {
 
   if (!file) {
     return (
-      <Card className="h-full flex items-center justify-center">
+      <Card className="h-full flex items-center justify-center p-4">
         <div className="text-center text-muted-foreground">
-          <FileCode className="h-16 w-16 mx-auto mb-4 opacity-50" />
-          <p>Select a file to edit</p>
-          <p className="text-sm">Double-click a file in the browser to open it</p>
+          <FileCode className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+          <p className="text-sm sm:text-base">Select a file to edit</p>
+          <p className="text-xs sm:text-sm mt-1">Double-click a file in the browser to open it</p>
         </div>
       </Card>
     );
@@ -190,54 +190,58 @@ export function FileEditor({ socket, file, onClose }: FileEditorProps) {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0 pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-lg truncate">{file.name}</CardTitle>
-            {hasChanges && <Badge variant="secondary">Modified</Badge>}
-            <Badge variant="outline">{language}</Badge>
+      <CardHeader className="flex-shrink-0 pb-2 space-y-2">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <CardTitle className="text-lg truncate max-w-[200px] sm:max-w-none" title={file.name}>{file.name}</CardTitle>
+            <div className="flex gap-1 flex-shrink-0">
+              {hasChanges && <Badge variant="secondary" className="text-xs">Modified</Badge>}
+              <Badge variant="outline" className="text-xs">{language}</Badge>
+            </div>
           </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={handleUndo} title="Undo (Ctrl+Z)">
+          <div className="flex gap-0.5 flex-wrap">
+            {/* Essential actions - always visible */}
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleUndo} title="Undo (Ctrl+Z)">
               <Undo className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleRedo} title="Redo (Ctrl+Y)">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleRedo} title="Redo (Ctrl+Y)">
               <Redo className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleFind} title="Find (Ctrl+F)">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hidden sm:flex" onClick={handleFind} title="Find (Ctrl+F)">
               <Search className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleReplace} title="Replace (Ctrl+H)">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hidden sm:flex" onClick={handleReplace} title="Replace (Ctrl+H)">
               <Replace className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" 
               size="sm" 
+              className={`h-8 w-8 p-0 hidden sm:flex ${wordWrap === 'on' ? 'bg-accent' : ''}`}
               onClick={() => setWordWrap(w => w === 'on' ? 'off' : 'on')} 
               title="Toggle Word Wrap"
-              className={wordWrap === 'on' ? 'bg-accent' : ''}
             >
               <WrapText className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleDownload} title="Download">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleDownload} title="Download">
               <Download className="h-4 w-4" />
             </Button>
             <Button 
               variant="default" 
               size="sm" 
+              className="h-8 px-2"
               onClick={handleSave} 
               disabled={!hasChanges || saving}
               title="Save (Ctrl+S)"
             >
-              <Save className="h-4 w-4 mr-1" />
-              {saving ? 'Saving...' : 'Save'}
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">{saving ? 'Saving...' : 'Save'}</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={onClose} title="Close">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onClose} title="Close">
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground truncate">{file.path}</p>
+        <p className="text-xs text-muted-foreground truncate" title={file.path}>{file.path}</p>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-hidden p-0">
