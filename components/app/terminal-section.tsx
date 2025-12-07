@@ -48,55 +48,310 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
   });
   const resizeDirection = useRef<ResizeDirection>(null);
 
-  // Terminal themes mapping
+  // Terminal themes mapping - supports all app themes
   const getTerminalTheme = useCallback((themeName?: string) => {
     if (!themeName || themeName === 'default') return undefined;
     
-    const themes: Record<string, {
-      background: string;
-      foreground: string;
-      cursor: string;
-      selection: string;
-    }> = {
+    // Configuration variables - adjust these to control terminal color behavior
+    const CONFIG = {
+      // Contrast ratios (WCAG guidelines: 3:1 for UI, 4.5:1 for text)
+      contrast: {
+        foreground: 4.5,      // Minimum contrast for foreground text
+        standardAnsi: 3.5,    // Minimum contrast for standard ANSI colors
+        brightAnsi: 2.5,      // Minimum contrast for bright ANSI colors
+      },
+      // Color intensity adjustments
+      intensity: {
+        darkBg: 0.7,         // Base intensity for dark backgrounds
+        lightBg: 0.5,         // Base intensity for light backgrounds
+        brightBoost: 0.3,     // Additional intensity for bright colors
+      },
+      // Hue shift for prompt color (green)
+      hueShift: {
+        degrees: 120,         // Degrees to shift primary color towards green (0-360)
+      },
+      // Brightness adjustments
+      brightness: {
+        darkSelection: 1.3,   // Brightness multiplier for selection on dark bg
+        lightSelection: 0.7,  // Brightness multiplier for selection on light bg
+        brightColorBoost: 1.2, // Brightness boost for bright colors
+        brightBlueBoost: 1.3,  // Brightness boost specifically for bright blue
+      },
+    };
+    
+    // App theme color mappings: [background, foreground, primary]
+    const appThemeColors: Record<string, string[]> = {
+      'default': ['#ffffff', '#000000', '#3b82f6'],
+      'dark': ['#1a1a1a', '#ffffff', '#3b82f6'],
+      'light': ['#ffffff', '#000000', '#3b82f6'],
+      'pink-cute': ['#FFF2F6', '#7A4A68', '#FF6BA8'],
+      'dark-green': ['#0A1F1C', '#B8E6D3', '#4ECCA3'],
+      'dark-yellow': ['#222831', '#EEEEEE', '#FFD369'],
+      'dark-violet': ['#0F0B1E', '#E9D5FF', '#A78BFA'],
+      'dark-warm-brown': ['#2D2424', '#E0C097', '#B85C38'],
+      'dark-blue-grey': ['#222831', '#EEEEEE', '#76ABAE'],
+      'dark-cream-green': ['#2C3639', '#DCD7C9', '#A27B5C'],
+      'sky-blue': ['#F9F7F7', '#112D4E', '#3F72AF'],
+      'cream': ['#FFF2D8', '#113946', '#BCA37F'],
+      'cream-indigo': ['#0A1F2A', '#EAD7BB', '#FFF2D8'],
+      'light-violet': ['#F4EEFF', '#424874', '#A6B1E1'],
+      'hacker-green': ['#000000', '#00FF41', '#00CC33'],
+    };
+    
+    // Helper to darken/lighten color
+    const adjustBrightness = (color: string, factor: number): string => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      const newR = Math.max(0, Math.min(255, Math.round(r * factor)));
+      const newG = Math.max(0, Math.min(255, Math.round(g * factor)));
+      const newB = Math.max(0, Math.min(255, Math.round(b * factor)));
+      
+      return `#${[newR, newG, newB].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    };
+    
+    // Helper to determine if color is dark
+    const isColorDark = (color: string): boolean => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 128;
+    };
+    
+    // Calculate relative luminance (for contrast ratio)
+    const getLuminance = (color: string): number => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16) / 255;
+      const g = parseInt(hex.substr(2, 2), 16) / 255;
+      const b = parseInt(hex.substr(4, 2), 16) / 255;
+      
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    };
+    
+    // Calculate contrast ratio between two colors
+    const getContrastRatio = (color1: string, color2: string): number => {
+      const lum1 = getLuminance(color1);
+      const lum2 = getLuminance(color2);
+      const lighter = Math.max(lum1, lum2);
+      const darker = Math.min(lum1, lum2);
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+    
+    // Ensure color has sufficient contrast against background
+    const ensureContrast = (color: string, bg: string, minRatio: number = 3.5): string => {
+      let currentColor = color;
+      let contrast = getContrastRatio(currentColor, bg);
+      
+      // If contrast is too low, adjust brightness
+      if (contrast < minRatio) {
+        const isBgDark = isColorDark(bg);
+        
+        // Adjust towards target luminance
+        let attempts = 0;
+        while (contrast < minRatio && attempts < 20) {
+          const hex = currentColor.replace('#', '');
+          const r = parseInt(hex.substr(0, 2), 16) / 255;
+          const g = parseInt(hex.substr(2, 2), 16) / 255;
+          const b = parseInt(hex.substr(4, 2), 16) / 255;
+          
+          // Move towards target luminance
+          const factor = isBgDark ? 1.15 : 0.85;
+          const newR = Math.max(0, Math.min(1, r * factor));
+          const newG = Math.max(0, Math.min(1, g * factor));
+          const newB = Math.max(0, Math.min(1, b * factor));
+          
+          currentColor = `#${[
+            Math.round(newR * 255),
+            Math.round(newG * 255),
+            Math.round(newB * 255)
+          ].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+          
+          contrast = getContrastRatio(currentColor, bg);
+          attempts++;
+        }
+      }
+      
+      return currentColor;
+    };
+    
+    // Helper to shift hue towards green
+    const shiftHueToGreen = (color: string, shiftDegrees: number = CONFIG.hueShift.degrees): string => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16) / 255;
+      const g = parseInt(hex.substr(2, 2), 16) / 255;
+      const b = parseInt(hex.substr(4, 2), 16) / 255;
+      
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0;
+      let s = 0;
+      const l = (max + min) / 2;
+      
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+      
+      // Shift hue towards green (add degrees, wrap around 360)
+      h = (h * 360 + shiftDegrees) % 360 / 360;
+      
+      // Convert back to RGB
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      
+      let newR, newG, newB;
+      if (s === 0) {
+        newR = newG = newB = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        newR = hue2rgb(p, q, h + 1/3);
+        newG = hue2rgb(p, q, h);
+        newB = hue2rgb(p, q, h - 1/3);
+      }
+      
+      return `#${[Math.round(newR * 255), Math.round(newG * 255), Math.round(newB * 255)]
+        .map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    };
+    
+    // Generate ANSI colors based on theme
+    const generateAnsiColors = (primary: string, bg: string) => {
+      const isDark = isColorDark(bg);
+      const baseIntensity = isDark ? CONFIG.intensity.darkBg : CONFIG.intensity.lightBg;
+      
+      // Shift primary color towards green for prompt color
+      const greenColor = shiftHueToGreen(primary, CONFIG.hueShift.degrees);
+      
+      // Generate base colors with proper intensity
+      const baseRed = adjustBrightness('#ff4444', baseIntensity);
+      const baseYellow = adjustBrightness('#ffff44', baseIntensity);
+      const baseMagenta = adjustBrightness('#ff44ff', baseIntensity);
+      const baseCyan = adjustBrightness('#44ffff', baseIntensity);
+      
+      // Ensure all colors have sufficient contrast against background
+      const colors = {
+        // Standard ANSI colors
+        black: ensureContrast(isDark ? '#000000' : '#333333', bg, CONFIG.contrast.standardAnsi),
+        red: ensureContrast(baseRed, bg, CONFIG.contrast.standardAnsi),
+        green: ensureContrast(greenColor, bg, CONFIG.contrast.standardAnsi),
+        yellow: ensureContrast(baseYellow, bg, CONFIG.contrast.standardAnsi),
+        blue: ensureContrast(primary, bg, CONFIG.contrast.standardAnsi),
+        magenta: ensureContrast(baseMagenta, bg, CONFIG.contrast.standardAnsi),
+        cyan: ensureContrast(baseCyan, bg, CONFIG.contrast.standardAnsi),
+        white: ensureContrast(isDark ? '#ffffff' : '#000000', bg, CONFIG.contrast.standardAnsi),
+        // Bright ANSI colors (more vibrant)
+        brightBlack: ensureContrast(isDark ? '#666666' : '#999999', bg, CONFIG.contrast.brightAnsi),
+        brightRed: ensureContrast(adjustBrightness('#ff6666', baseIntensity + CONFIG.intensity.brightBoost), bg, CONFIG.contrast.brightAnsi),
+        brightGreen: ensureContrast(adjustBrightness(greenColor, CONFIG.brightness.brightColorBoost), bg, CONFIG.contrast.brightAnsi),
+        brightYellow: ensureContrast(adjustBrightness('#ffff66', baseIntensity + CONFIG.intensity.brightBoost), bg, CONFIG.contrast.brightAnsi),
+        brightBlue: ensureContrast(adjustBrightness(primary, CONFIG.brightness.brightBlueBoost), bg, CONFIG.contrast.brightAnsi),
+        brightMagenta: ensureContrast(adjustBrightness('#ff66ff', baseIntensity + CONFIG.intensity.brightBoost), bg, CONFIG.contrast.brightAnsi),
+        brightCyan: ensureContrast(adjustBrightness('#66ffff', baseIntensity + CONFIG.intensity.brightBoost), bg, CONFIG.contrast.brightAnsi),
+        brightWhite: ensureContrast(isDark ? '#ffffff' : '#000000', bg, CONFIG.contrast.brightAnsi),
+      };
+      
+      return colors;
+    };
+    
+    // Legacy terminal-specific themes (for backward compatibility)
+    const legacyThemes: Record<string, Record<string, string>> = {
       'night-owl': {
         background: '#011627',
         foreground: '#d6deeb',
         cursor: '#80a4c2',
-        selection: '#1d3b53',
+        selectionBackground: '#1d3b53',
+        selectionForeground: '#d6deeb',
+        ...generateAnsiColors('#80a4c2', '#011627'),
       },
       'nord': {
         background: '#2e3440',
         foreground: '#d8dee9',
         cursor: '#d8dee9',
-        selection: '#434c5e',
+        selectionBackground: '#434c5e',
+        selectionForeground: '#d8dee9',
+        ...generateAnsiColors('#88c0d0', '#2e3440'),
       },
       'one-dark': {
         background: '#282c34',
         foreground: '#abb2bf',
         cursor: '#528bff',
-        selection: '#3e4451',
+        selectionBackground: '#3e4451',
+        selectionForeground: '#abb2bf',
+        ...generateAnsiColors('#528bff', '#282c34'),
       },
       'one-light': {
         background: '#fafafa',
         foreground: '#383a42',
         cursor: '#526fff',
-        selection: '#e5e5e5',
+        selectionBackground: '#e5e5e5',
+        selectionForeground: '#383a42',
+        ...generateAnsiColors('#526fff', '#fafafa'),
       },
       'synthwave-84': {
         background: '#241b2f',
         foreground: '#f4eee4',
         cursor: '#f97e72',
-        selection: '#372d47',
+        selectionBackground: '#372d47',
+        selectionForeground: '#f4eee4',
+        ...generateAnsiColors('#f97e72', '#241b2f'),
       },
       'verminal': {
         background: '#191323',
         foreground: '#c7c7c7',
         cursor: '#bbbbbb',
-        selection: '#2d2d44',
+        selectionBackground: '#2d2d44',
+        selectionForeground: '#c7c7c7',
+        ...generateAnsiColors('#ff6b6b', '#191323'),
       },
     };
     
-    return themes[themeName];
+    // Check legacy themes first
+    if (legacyThemes[themeName]) {
+      return legacyThemes[themeName];
+    }
+    
+    // Map app themes to terminal colors with full ANSI support
+    const colors = appThemeColors[themeName];
+    if (colors) {
+      const isDark = isColorDark(colors[0]);
+      const selectionBg = isDark 
+        ? adjustBrightness(colors[0], CONFIG.brightness.darkSelection) 
+        : adjustBrightness(colors[0], CONFIG.brightness.lightSelection);
+      
+      // Ensure foreground has sufficient contrast
+      const foreground = ensureContrast(colors[1], colors[0], CONFIG.contrast.foreground);
+      
+      return {
+        background: colors[0],
+        foreground: foreground,
+        cursor: colors[2],
+        selectionBackground: selectionBg,
+        selectionForeground: foreground,
+        ...generateAnsiColors(colors[2], colors[0]),
+      };
+    }
+    
+    return undefined;
   }, []);
 
   const initTerminal = async () => {
@@ -547,9 +802,9 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
       </CardHeader>
       <CardContent className={`space-y-3 flex-1 overflow-hidden ${isFloating ? 'flex flex-col' : ''}`}>
         <div 
-          className={`rounded-md border bg-black overflow-hidden flex-1 ${isFloating ? '' : 'min-h-[400px]'}`}
+          className={`rounded-lg border overflow-hidden ${isFloating ? '' : 'min-h-[400px]'}`}
           style={{ 
-            height: isFloating ? '100%' : isFullscreen ? '100vh' : '400px',
+            height: isFloating ? 'auto' : isFullscreen ? '100vh' : '400px',
           }}
         >
           <div

@@ -494,6 +494,41 @@
   --ring: oklch(0.705 0.015 286.067);
 }
 
+/* Girly Pink Cute Theme */
+[data-bs-theme="pink-cute"] {
+  --background: #FFF2F6;
+  --foreground: #7A4A68;
+  --card: #FFE4EB;
+  --card-foreground: #7A4A68;
+  --popover: #FFE4EB;
+  --popover-foreground: #7A4A68;
+  --primary: #FF6BA8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FFB8D4;
+  --secondary-foreground: #7A4A68;
+  --muted: #FFE4EB;
+  --muted-foreground: #8F6A82;
+  --accent: #FF8FC4;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF7BA8;
+  --border: #FFC9DD;
+  --input: #FFD0E1;
+  --ring: #FF6BA8;
+  --chart-1: #FF6BA8;
+  --chart-2: #FF8FC4;
+  --chart-3: #FFB8D4;
+  --chart-4: #FFC9DD;
+  --chart-5: #FFD0E1;
+  --sidebar: #FFE4EB;
+  --sidebar-foreground: #7A4A68;
+  --sidebar-primary: #FF6BA8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FF8FC4;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #FFC9DD;
+  --sidebar-ring: #FF6BA8;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -501,5 +536,10 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-geist-mono), 'Courier New', 'Courier', monospace;
+  }
+  
+  /* Terminal padding */
+  .xterm {
+    padding: 0.2rem;
   }
 }

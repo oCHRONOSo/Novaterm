@@ -146,6 +146,7 @@ class SSHHandler {
       })
       .on('error', (err) => {
         session.isConnecting = false;
+        console.error(`[Session ${sessionId.slice(0, 8)}] SSH Error:`, err.message);
         this.sessionManager.broadcast(session, 'ssh.error', err.message);
         this.sessionManager.destroy(sessionId);
       })

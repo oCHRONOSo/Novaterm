@@ -36,10 +36,10 @@ export type Tool = {
 export type ToolStatus = 'unknown' | 'checking' | 'installed' | 'not_installed' | 'installing';
 
 export const levelColors = {
-  basic: 'bg-green-500/10 text-green-500 border-green-500/30',
-  intermediate: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
-  advanced: 'bg-orange-500/10 text-orange-500 border-orange-500/30',
-  expert: 'bg-red-500/10 text-red-500 border-red-500/30',
+  basic: 'bg-primary/10 text-primary border-primary/30',
+  intermediate: 'bg-primary/20 text-primary border-primary/30',
+  advanced: 'bg-accent/10 text-accent-foreground border-accent/30',
+  expert: 'bg-destructive/10 text-destructive border-destructive/30',
 };
 
 export const levelLabels = {

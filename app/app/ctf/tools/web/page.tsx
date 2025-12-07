@@ -339,8 +339,8 @@ export default function WebToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/30">
-            <Globe className="h-5 w-5 text-green-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Globe className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Web Application Tools</h2>

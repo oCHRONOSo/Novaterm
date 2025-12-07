@@ -193,14 +193,14 @@ export function ToolExecutor({ tool }: ToolExecutorProps) {
   const getStatusBadge = () => {
     switch (toolStatus) {
       case 'installed':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/30"><CheckCircle className="h-3 w-3 mr-1" /> Installed</Badge>;
+        return <Badge className="bg-primary/10 text-primary border-primary/30"><CheckCircle className="h-3 w-3 mr-1" /> Installed</Badge>;
       case 'not_installed':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/30"><XCircle className="h-3 w-3 mr-1" /> Not Installed</Badge>;
+        return <Badge className="bg-destructive/10 text-destructive border-destructive/30"><XCircle className="h-3 w-3 mr-1" /> Not Installed</Badge>;
       case 'checking':
       case 'installing':
-        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/30"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {toolStatus === 'checking' ? 'Checking' : 'Installing'}</Badge>;
+        return <Badge className="bg-accent/10 text-accent-foreground border-accent/30"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {toolStatus === 'checking' ? 'Checking' : 'Installing'}</Badge>;
       default:
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30"><AlertTriangle className="h-3 w-3 mr-1" /> Unknown</Badge>;
+        return <Badge className="bg-muted text-muted-foreground border-border"><AlertTriangle className="h-3 w-3 mr-1" /> Unknown</Badge>;
     }
   };
 
@@ -347,7 +347,7 @@ export function ToolExecutor({ tool }: ToolExecutorProps) {
                   </div>
                   <p className="text-xs text-muted-foreground">{preset.description}</p>
                   {preset.dangerous && (
-                    <Badge variant="outline" className="mt-2 bg-red-500/10 text-red-500 border-red-500/30 text-xs">
+                    <Badge variant="outline" className="mt-2 bg-destructive/10 text-destructive border-destructive/30 text-xs">
                       <AlertTriangle className="h-3 w-3 mr-1" /> Use with caution
                     </Badge>
                   )}
@@ -400,7 +400,7 @@ export function ToolExecutor({ tool }: ToolExecutorProps) {
                           <Label className="text-xs flex items-center gap-1">
                             {arg.flag && <code className="text-primary">{arg.flag}</code>}
                             {arg.name}
-                            {arg.required && <span className="text-red-500">*</span>}
+                            {arg.required && <span className="text-destructive">*</span>}
                             <Tooltip>
                               <TooltipTrigger>
                                 <Info className="h-3 w-3 text-muted-foreground" />
@@ -452,7 +452,7 @@ export function ToolExecutor({ tool }: ToolExecutorProps) {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Command Preview</Label>
                 <div className="bg-background border rounded-lg p-3 font-mono text-sm break-all">
-                  <span className="text-green-500">$</span> {buildCommand() || <span className="text-muted-foreground">Fill in the arguments above...</span>}
+                  <span className="text-primary">$</span> {buildCommand() || <span className="text-muted-foreground">Fill in the arguments above...</span>}
                 </div>
               </div>
 

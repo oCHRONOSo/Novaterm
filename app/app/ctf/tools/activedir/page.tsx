@@ -390,8 +390,8 @@ export default function ActiveDirToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
-            <Users className="h-5 w-5 text-cyan-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Users className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Active Directory</h2>

@@ -407,8 +407,8 @@ export default function ForensicsToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/30">
-            <Eye className="h-5 w-5 text-purple-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Eye className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Forensics & Steganography</h2>

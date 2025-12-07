@@ -252,8 +252,8 @@ export default function ReconToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
-            <Crosshair className="h-5 w-5 text-blue-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Crosshair className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Reconnaissance Tools</h2>

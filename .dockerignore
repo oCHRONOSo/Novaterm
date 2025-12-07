@@ -1,0 +1,73 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs (will be built in Docker)
+.next
+out
+dist
+build
+
+# Testing
+coverage
+.nyc_output
+
+# Development environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production.local
+docker.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.cursor
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker (don't include Docker files in build context recursively)
+.dockerignore
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs/
+
+# Misc
+LICENSE
+CHANGELOG.md
+CONTRIBUTING.md
+
+# Keep these for build context
+!package.json
+!package-lock.json
+!prisma/
+!server/
+!scripts/
+!public/
+!app/
+!components/
+!contexts/
+!hooks/
+!lib/
+!next.config.ts
+!tsconfig.json
+!postcss.config.mjs
+!tailwind.config.ts
+

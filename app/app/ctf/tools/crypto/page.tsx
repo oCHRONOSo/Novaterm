@@ -393,8 +393,8 @@ export default function CryptoToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
-            <Key className="h-5 w-5 text-orange-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Key className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Password & Crypto Tools</h2>

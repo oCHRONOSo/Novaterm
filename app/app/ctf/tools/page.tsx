@@ -30,9 +30,9 @@ const categories = [
     name: 'Reconnaissance',
     description: 'Network discovery, port scanning, and service enumeration',
     icon: Crosshair,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/recon',
     tools: ['Nmap'],
     highlights: [
@@ -47,9 +47,9 @@ const categories = [
     name: 'Web Application',
     description: 'Web vulnerability scanning, fuzzing, and exploitation',
     icon: Globe,
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/web',
     tools: ['ffuf', 'SQLMap', 'Nikto'],
     highlights: [
@@ -64,9 +64,9 @@ const categories = [
     name: 'Password & Crypto',
     description: 'Password cracking, hash analysis, and brute-force attacks',
     icon: Key,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
-    borderColor: 'border-orange-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/crypto',
     tools: ['John the Ripper', 'Hashcat', 'Hydra'],
     highlights: [
@@ -81,9 +81,9 @@ const categories = [
     name: 'Privilege Escalation',
     description: 'Linux & Windows privilege escalation enumeration',
     icon: TrendingUp,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-500/10',
-    borderColor: 'border-yellow-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/privesc',
     tools: ['LinPEAS', 'WinPEAS', 'pspy', 'GTFOBins'],
     highlights: [
@@ -98,9 +98,9 @@ const categories = [
     name: 'Active Directory',
     description: 'Domain enumeration and exploitation tools',
     icon: Users,
-    color: 'text-cyan-500',
-    bgColor: 'bg-cyan-500/10',
-    borderColor: 'border-cyan-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/activedir',
     tools: ['Impacket', 'CrackMapExec', 'Evil-WinRM', 'BloodHound'],
     highlights: [
@@ -115,9 +115,9 @@ const categories = [
     name: 'Forensics & Stego',
     description: 'Digital forensics, steganography, and file analysis',
     icon: Eye,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-    borderColor: 'border-purple-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/forensics',
     tools: ['Binwalk', 'Steghide', 'ExifTool', 'Volatility'],
     highlights: [
@@ -132,9 +132,9 @@ const categories = [
     name: 'Exploitation',
     description: 'Network utilities, shells, and exploitation frameworks',
     icon: Shield,
-    color: 'text-red-500',
-    bgColor: 'bg-red-500/10',
-    borderColor: 'border-red-500/30',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
     href: '/app/ctf/tools/exploit',
     tools: ['Netcat', 'Metasploit', 'Searchsploit'],
     highlights: [
@@ -362,7 +362,7 @@ ${checks}
       <div className="flex items-center justify-between mb-4">
         <div className="text-xs text-muted-foreground">
           {installed.size > 0 ? (
-            <span className="text-green-500 font-medium">{installed.size}/{installItems.length} installed</span>
+            <span className="text-primary font-medium">{installed.size}/{installItems.length} installed</span>
           ) : (
             'Click install to set up wordlists and tools on your remote server'
           )}
@@ -406,7 +406,7 @@ ${checks}
                       <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0" />
                     )}
                     {!checking && isInstalled && (
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
                     )}
                     <Button
                       size="sm"
@@ -450,7 +450,7 @@ ${checks}
                       <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0" />
                     )}
                     {!checking && isInstalled && (
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
                     )}
                     <Button
                       size="sm"
@@ -489,7 +489,7 @@ export default function CTFToolsHub() {
           <p className="text-sm text-muted-foreground">Professional penetration testing toolkit with advanced command options</p>
         </div>
         {status !== 'connected' && (
-          <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/30">
+          <Badge variant="secondary" className="bg-accent/10 text-accent-foreground border border-accent/30">
             <AlertTriangle className="h-3 w-3 mr-1" />
             Connect via SSH first
           </Badge>
@@ -566,10 +566,10 @@ export default function CTFToolsHub() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-muted-foreground">
             <div className="space-y-1">
               <div className="font-medium text-foreground">Skill Levels</div>
-              <div><Badge variant="outline" className="bg-green-500/10 text-green-500 text-xs mr-1">Basic</Badge> Simple, safe commands</div>
-              <div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 text-xs mr-1">Intermediate</Badge> More options, deeper scans</div>
-              <div><Badge variant="outline" className="bg-orange-500/10 text-orange-500 text-xs mr-1">Advanced</Badge> Complex operations</div>
-              <div><Badge variant="outline" className="bg-red-500/10 text-red-500 text-xs mr-1">Expert</Badge> Full control, use carefully</div>
+              <div><Badge variant="outline" className="bg-primary/10 text-primary text-xs mr-1">Basic</Badge> Simple, safe commands</div>
+              <div><Badge variant="outline" className="bg-primary/20 text-primary text-xs mr-1">Intermediate</Badge> More options, deeper scans</div>
+              <div><Badge variant="outline" className="bg-accent/10 text-accent-foreground text-xs mr-1">Advanced</Badge> Complex operations</div>
+              <div><Badge variant="outline" className="bg-destructive/10 text-destructive text-xs mr-1">Expert</Badge> Full control, use carefully</div>
             </div>
             <div className="space-y-1">
               <p className="font-medium text-foreground">Best Practices</p>

@@ -280,8 +280,8 @@ export default function PrivescToolsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-            <TrendingUp className="h-5 w-5 text-yellow-500" />
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <TrendingUp className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-semibold">Privilege Escalation</h2>

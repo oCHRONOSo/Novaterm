@@ -1,0 +1,3 @@
+# This directory is for MySQL initialization scripts
+# Place .sql files here to run on first database startup
+
