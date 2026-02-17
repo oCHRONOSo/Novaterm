@@ -377,7 +377,7 @@ async function start() {
        }
        
        const tempFile = `/tmp/pkg_search_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.txt`;
-       const searchCmd = `if command -v apt >/dev/null 2>&1; then apt search "${query}" 2>/dev/null | head -20 > "${tempFile}" 2>&1; elif command -v dnf >/dev/null 2>&1; then dnf search "${query}" 2>/dev/null | head -20 > "${tempFile}" 2>&1; elif command -v yum >/dev/null 2>&1; then yum search "${query}" 2>/dev/null | head -20 > "${tempFile}" 2>&1; else echo "No supported package manager found" > "${tempFile}"; fi`;
+       const searchCmd = `if command -v apt >/dev/null 2>&1; then apt search "${query}" 2>/dev/null > "${tempFile}" 2>&1; elif command -v dnf >/dev/null 2>&1; then dnf search "${query}" 2>/dev/null > "${tempFile}" 2>&1; elif command -v yum >/dev/null 2>&1; then yum search "${query}" 2>/dev/null > "${tempFile}" 2>&1; else echo "No supported package manager found" > "${tempFile}"; fi`;
        
        socket.searchTempFile = tempFile;
        socket.searchStartTime = Date.now();

@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Socket } from 'socket.io-client';
+import { Plus, X } from 'lucide-react';
+import io, { Socket } from 'socket.io-client';
 import '@xterm/xterm/css/xterm.css';
+import { useSocket } from '@/contexts/socket-context';
 
 type TerminalSectionProps = {
   socket: Socket | null;
@@ -22,20 +24,37 @@ type Position = { x: number; y: number };
 type Size = { width: number; height: number };
 type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
 
+// Terminal tab instance
+type TerminalTab = {
+  id: string;
+  name: string; // display name (Terminal 1, Terminal 2, ...)
+  term: import('@xterm/xterm').Terminal | null;
+  fitAddon: import('@xterm/addon-fit').FitAddon | null;
+  searchAddon: import('@xterm/addon-search').SearchAddon | null;
+  containerRef: HTMLDivElement | null;
+  isReady: boolean;
+  socket: Socket | null;
+  isShared?: boolean;
+  sessionId?: string | null;
+  status?: string;
+  cleanup?: () => void;
+};
+
 export function TerminalSection({ socket, isConnected, terminalTheme, headerActions, hideDefaultControls = false, onFloatingChange }: TerminalSectionProps) {
-  const termRef = useRef<import('@xterm/xterm').Terminal | null>(null);
-  const fitAddonRef = useRef<import('@xterm/addon-fit').FitAddon | null>(null);
-  const searchAddonRef = useRef<import('@xterm/addon-search').SearchAddon | null>(null);
-  const termContainerRef = useRef<HTMLDivElement | null>(null);
+  // Multi-terminal state
+  const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const tabContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [searchText, setSearchText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isTerminalReady, setIsTerminalReady] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
   const [size, setSize] = useState<Size>({ width: 800, height: 500 });
   const [isFloating, setIsFloating] = useState(false);
+  const isCreatingInitialTab = useRef(false);
   const dragStartPos = useRef<Position>({ x: 0, y: 0 });
   const resizeStartPos = useRef<{ 
     pos: Position; 
@@ -47,6 +66,14 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
     initialCardPos: { x: 0, y: 0 },
   });
   const resizeDirection = useRef<ResizeDirection>(null);
+  
+  // Get active tab
+  const activeTab = tabs.find(t => t.id === activeTabId) || null;
+  const activeTabIsShared = !!activeTab?.isShared;
+
+  // Credentials and socket host from global context
+  const { ip, username, password, sshKeyContent, passphrase, port, status } = useSocket();
+  const socketHost = typeof window === 'undefined' ? '' : (process.env.NEXT_PUBLIC_SOCKET_HOST || window.location.origin);
 
   // Terminal themes mapping - supports all app themes
   const getTerminalTheme = useCallback((themeName?: string) => {
@@ -354,14 +381,25 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
     return undefined;
   }, []);
 
-  const initTerminal = async () => {
-    if (termRef.current || !termContainerRef.current) return;
+  // Create a new terminal tab
+  const createTerminalTab = useCallback(async (
+    container: HTMLDivElement,
+    displayName: string,
+    existingSocket?: Socket | null,
+  ): Promise<TerminalTab> => {
     const [{ Terminal }, { FitAddon }, { SearchAddon }, { WebLinksAddon }] = await Promise.all([
       import('@xterm/xterm'),
       import('@xterm/addon-fit'),
       import('@xterm/addon-search'),
       import('@xterm/addon-web-links'),
     ]);
+    
+    if (!socketHost) {
+      throw new Error('Socket host is not configured');
+    }
+
+    const id = `term-${Math.random().toString(36).slice(2, 8)}`;
+    const log = (...args: unknown[]) => console.log(`[Terminal ${id}]`, ...args);
     const term = new Terminal({
       convertEol: true,
       cursorBlink: true,
@@ -371,90 +409,296 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
       allowProposedApi: true,
       theme: terminalTheme ? getTerminalTheme(terminalTheme) : undefined,
     });
+    
     const fit = new FitAddon();
     const search = new SearchAddon();
     const webLinks = new WebLinksAddon();
     term.loadAddon(fit);
     term.loadAddon(search);
     term.loadAddon(webLinks);
-    termRef.current = term;
-    fitAddonRef.current = fit;
-    searchAddonRef.current = search;
-    term.open(termContainerRef.current);
+    term.open(container);
+
+    // Use provided socket for first tab (shares main session) or create a dedicated one
+    const isSharedSocket = !!existingSocket;
+    const tabSocket = existingSocket || io(socketHost, { transports: ['websocket'] });
+    let tabSessionId: string | null = null;
+    let tabStatus: string | undefined = tabSocket.connected ? 'connected' : 'connecting';
+
+    const handleConnect = () => {
+      tabStatus = 'connecting';
+      log('socket connected, starting SSH connection');
+      if (!ip || !username) {
+        term.writeln('\x1b[31mMissing SSH credentials. Please connect first.\x1b[0m');
+        return;
+      }
+      tabSocket.emit('startSSHConnection', {
+        ip,
+        username,
+        password,
+        port: Number(port) || 22,
+        sshKeyContent,
+        passphrase,
+      });
+    };
+
+    const handleSessionId = (sid: string) => {
+      tabSessionId = sid;
+      log('sessionId', sid);
+    };
+
+    const handleStatus = (msg: string) => {
+      tabStatus = msg;
+      log('status', msg);
+      if (msg === 'SSH connected') {
+        term.writeln('\x1b[32mConnected\x1b[0m');
+      }
+    };
+
+    const handleError = (msg: string) => {
+      tabStatus = 'disconnected';
+      log('ssh.error', msg);
+      term.writeln(`\x1b[31mSSH error: ${msg}\x1b[0m`);
+    };
+
+    const handleOutput = (data: string) => {
+      term.write(data);
+    };
+
+    const handleDisconnect = () => {
+      tabStatus = 'disconnected';
+      log('socket disconnected');
+      term.writeln('\x1b[33mDisconnected\x1b[0m');
+    };
+
+    const handleConnectError = () => {
+      tabStatus = 'disconnected';
+      log('connect_error');
+      term.writeln('\x1b[31mConnection failed\x1b[0m');
+    };
+
+    // Register listeners
+    if (!isSharedSocket) {
+      tabSocket.on('connect', handleConnect);
+    } else if (!tabSocket.connected) {
+      term.writeln('\x1b[33mWaiting for main connection...\x1b[0m');
+    }
+    tabSocket.on('ssh.sessionId', handleSessionId);
+    tabSocket.on('ssh.status', handleStatus);
+    tabSocket.on('ssh.error', handleError);
+    tabSocket.on('output', handleOutput);
+    tabSocket.on('disconnect', handleDisconnect);
+    tabSocket.on('connect_error', handleConnectError);
+
+    // If using shared socket and already connected, immediately show status
+    if (isSharedSocket && tabSocket.connected) {
+      handleStatus('SSH connected');
+    }
+
+    // Send input to this tab's socket
+    const inputDisposable = term.onData((data) => {
+      log('input', data.length, 'bytes');
+      tabSocket.emit('input', data);
+    });
     
-    // Fit terminal after a small delay to ensure container is fully rendered
-    // Use requestAnimationFrame to ensure DOM is ready
+    // Fit terminal after a small delay
     requestAnimationFrame(() => {
       setTimeout(() => {
         try {
-          if (fit && termContainerRef.current) {
-            fit.fit();
-            // Emit initial resize
-            if (socket && term) {
-              socket.emit('resize', { rows: term.rows, cols: term.cols });
-            }
-          }
+          fit.fit();
+          const size = { rows: term.rows, cols: term.cols };
+          tabSocket.emit('resize', size);
+          log('resize', size);
         } catch (e) {
           console.error('Fit error:', e);
         }
       }, 50);
     });
     
-    setIsTerminalReady(true);
-
-    // Input handler is managed by the useEffect below
-    
+    // Add ResizeObserver for this terminal
     const resizeObserver = new ResizeObserver(() => {
       try {
-        if (fit && termContainerRef.current) {
+        if (fit && container.style.display !== 'none') {
           fit.fit();
-          if (socket && term) {
-            socket.emit('resize', { rows: term.rows, cols: term.cols });
-          }
+          const size = { rows: term.rows, cols: term.cols };
+          tabSocket.emit('resize', size);
+          log('resize (observer)', size);
         }
       } catch (e) {
         console.error('Resize error:', e);
       }
     });
-    if (termContainerRef.current) {
-      resizeObserver.observe(termContainerRef.current);
-    }
-
-    return () => {
+    resizeObserver.observe(container);
+    
+    const tab: TerminalTab = {
+      id,
+      name: displayName,
+      term,
+      fitAddon: fit,
+      searchAddon: search,
+      containerRef: container,
+      isReady: true,
+      socket: tabSocket,
+      isShared: isSharedSocket,
+      sessionId: tabSessionId,
+      status: tabStatus,
+    };
+    
+    // Cleanup helper to dispose resources when tab is removed
+    const cleanup = () => {
       resizeObserver.disconnect();
+      inputDisposable.dispose();
+      tabSocket.off?.('ssh.sessionId', handleSessionId);
+      tabSocket.off?.('ssh.status', handleStatus);
+      tabSocket.off?.('ssh.error', handleError);
+      tabSocket.off?.('output', handleOutput);
+      tabSocket.off?.('disconnect', handleDisconnect);
+      tabSocket.off?.('connect_error', handleConnectError);
+      if (!isSharedSocket) {
+        tabSocket.off?.('connect', handleConnect);
+        tabSocket.removeAllListeners();
+        tabSocket.disconnect();
+      }
       term.dispose();
     };
-  };
-
-  // Update terminal theme when it changes
+    tab.cleanup = cleanup;
+    
+    return tab;
+  }, [terminalTheme, getTerminalTheme, socketHost, ip, username, password, port, sshKeyContent, passphrase]);
+  
+  // Add a new terminal tab
+  const addTerminalTab = useCallback(async () => {
+    const container = document.createElement('div');
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.display = 'none'; // Hidden by default
+    
+    // Find the terminal container wrapper and append
+    const wrapper = document.getElementById('terminal-tabs-container');
+    if (wrapper) {
+      wrapper.appendChild(container);
+      const displayName = tabs.length === 0 ? 'Main' : `Terminal ${tabs.length + 1}`;
+      const newTab = await createTerminalTab(container, displayName, tabs.length === 0 ? socket : undefined);
+      tabContainersRef.current.set(newTab.id, container);
+      
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+      
+      // Show the new tab container
+      container.style.display = 'block';
+    }
+  }, [createTerminalTab, tabs.length, socket]);
+  
+  // Ensure at least one tab exists after a successful connect
   useEffect(() => {
-    if (termRef.current && terminalTheme !== undefined) {
+    if (status === 'connected' && tabs.length === 0 && !isCreatingInitialTab.current) {
+      isCreatingInitialTab.current = true;
+      void addTerminalTab().finally(() => {
+        isCreatingInitialTab.current = false;
+      });
+    }
+  }, [status, tabs.length, addTerminalTab]);
+
+  // Remove a terminal tab
+  const removeTerminalTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const tabIndex = prev.findIndex(t => t.id === tabId);
+      const tab = prev[tabIndex];
+      
+      if (tab?.isShared) {
+        return prev;
+      }
+
+      if (tab) {
+        // Cleanup tab resources
+        tab.cleanup?.();
+        if (!tab.cleanup) {
+          tab.term?.dispose();
+          tab.socket?.removeAllListeners();
+          tab.socket?.disconnect();
+        }
+        const container = tabContainersRef.current.get(tabId);
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+        tabContainersRef.current.delete(tabId);
+      }
+      
+      const newTabs = prev.filter(t => t.id !== tabId);
+      
+      // If we're removing the active tab, switch to another
+      if (tabId === activeTabId && newTabs.length > 0) {
+        const newActiveIndex = Math.min(tabIndex, newTabs.length - 1);
+        setActiveTabId(newTabs[newActiveIndex]?.id || null);
+      } else if (newTabs.length === 0) {
+        setActiveTabId(null);
+      }
+      
+      return newTabs;
+    });
+  }, [activeTabId]);
+  
+  // Switch to a tab
+  const switchToTab = useCallback((tabId: string) => {
+    setActiveTabId(tabId);
+    
+    // Update container visibility
+    tabs.forEach(tab => {
+      const container = tabContainersRef.current.get(tab.id);
+      if (container) {
+        container.style.display = tab.id === tabId ? 'block' : 'none';
+      }
+    });
+    
+    // Refit the active terminal
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab?.fitAddon) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            tab.fitAddon?.fit();
+            if (tab.socket && tab.term) {
+              tab.socket.emit('resize', { rows: tab.term.rows, cols: tab.term.cols });
+            }
+          } catch (e) {
+            console.error('Fit error:', e);
+          }
+        }, 50);
+      });
+    }
+  }, [tabs]);
+
+  // Update terminal theme when it changes - apply to all tabs
+  useEffect(() => {
+    if (terminalTheme !== undefined) {
       const theme = getTerminalTheme(terminalTheme);
-      if (theme) {
-        termRef.current.options.theme = theme;
-      } else {
-        // Clear theme by setting to undefined or default empty theme
-        termRef.current.options.theme = undefined;
-      }
+      tabs.forEach(tab => {
+        if (tab.term) {
+          tab.term.options.theme = theme || undefined;
+        }
+      });
     }
-  }, [terminalTheme, getTerminalTheme]);
+  }, [terminalTheme, getTerminalTheme, tabs]);
 
-  // Initialize terminal when socket is available
+  // Cleanup all terminals on unmount
   useEffect(() => {
-    if (socket && !termRef.current && termContainerRef.current) {
-      initTerminal();
-    }
+    const containersMap = tabContainersRef.current;
     return () => {
-      if (termRef.current) {
-        termRef.current.dispose();
-        termRef.current = null;
-        fitAddonRef.current = null;
-        searchAddonRef.current = null;
-      }
-      setIsTerminalReady(false);
+      tabs.forEach(tab => {
+        tab.cleanup?.();
+        if (!tab.cleanup) {
+          tab.term?.dispose();
+          tab.socket?.removeAllListeners();
+          tab.socket?.disconnect();
+        }
+        const container = containersMap.get(tab.id);
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      });
+      containersMap.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket]);
+  }, []);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -463,11 +707,11 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
       setIsFullscreen(isCurrentlyFullscreen);
       // Refit terminal when fullscreen state changes
       setTimeout(() => {
-        if (fitAddonRef.current && termRef.current) {
+        if (activeTab?.fitAddon && activeTab?.term) {
           try {
-            fitAddonRef.current.fit();
-            if (socket && termRef.current) {
-              socket.emit('resize', { rows: termRef.current.rows, cols: termRef.current.cols });
+            activeTab.fitAddon.fit();
+            if (activeTab.socket && activeTab.term) {
+              activeTab.socket.emit('resize', { rows: activeTab.term.rows, cols: activeTab.term.cols });
             }
           } catch (e) {
             console.error('Refit error:', e);
@@ -480,49 +724,49 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [socket]);
+  }, [activeTab]);
 
-  // Update input handler when socket changes
+  // When global status goes disconnected, clean up all tab sockets/terminals
   useEffect(() => {
-    if (isTerminalReady && termRef.current && socket) {
-      const term = termRef.current;
-      const disposable = term.onData((data) => {
-        socket.emit('input', data);
+    if (status !== 'disconnected' || tabs.length === 0) return;
+
+    setTabs(prevTabs => {
+      prevTabs.forEach(tab => {
+        // Ask the server to end the SSH session, then fully clean up client side
+        tab.socket?.emit?.('endSession');
+        tab.cleanup?.();
+        if (!tab.cleanup) {
+          tab.term?.dispose();
+          tab.socket?.removeAllListeners();
+          tab.socket?.disconnect();
+        }
+        const container = tabContainersRef.current.get(tab.id);
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
       });
-      return () => {
-        disposable.dispose();
-      };
-    }
-  }, [socket, isTerminalReady]);
+      tabContainersRef.current.clear();
+      return [];
+    });
 
-  // Set up output handler when both socket and terminal are ready
-  useEffect(() => {
-    if (!socket || !isTerminalReady || !termRef.current) return;
-    
-    const handler = (data: string) => {
-      if (termRef.current) {
-        termRef.current.write(data);
-      }
-    };
-    
-    socket.on('output', handler);
-    
-    return () => {
-      socket.off('output', handler);
-    };
-  }, [socket, isTerminalReady]);
+    if (activeTabId !== null) {
+      setActiveTabId(null);
+    }
+  }, [status, tabs.length, activeTabId]);
+
 
   const toggleFullscreen = () => {
-    if (!termContainerRef.current) return;
+    const container = document.getElementById('terminal-tabs-container');
+    if (!container) return;
     if (!isFullscreen) {
-      termContainerRef.current.requestFullscreen().then(() => {
+      container.requestFullscreen().then(() => {
         setIsFullscreen(true);
         // Refit after fullscreen change
         setTimeout(() => {
-          if (fitAddonRef.current && termRef.current) {
-            fitAddonRef.current.fit();
-            if (socket && termRef.current) {
-              socket.emit('resize', { rows: termRef.current.rows, cols: termRef.current.cols });
+          if (activeTab?.fitAddon && activeTab?.term) {
+            activeTab.fitAddon.fit();
+            if (activeTab.socket && activeTab.term) {
+              activeTab.socket.emit('resize', { rows: activeTab.term.rows, cols: activeTab.term.cols });
             }
           }
         }, 100);
@@ -532,10 +776,10 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
         setIsFullscreen(false);
         // Refit after exiting fullscreen
         setTimeout(() => {
-          if (fitAddonRef.current && termRef.current) {
-            fitAddonRef.current.fit();
-            if (socket && termRef.current) {
-              socket.emit('resize', { rows: termRef.current.rows, cols: termRef.current.cols });
+          if (activeTab?.fitAddon && activeTab?.term) {
+            activeTab.fitAddon.fit();
+            if (activeTab.socket && activeTab.term) {
+              activeTab.socket.emit('resize', { rows: activeTab.term.rows, cols: activeTab.term.cols });
             }
           }
         }, 100);
@@ -544,30 +788,30 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
   };
 
   const clearTerminal = () => {
-    termRef.current?.clear();
+    activeTab?.term?.clear();
   };
 
   const findNext = () => {
-    if (searchAddonRef.current && searchText) {
-      searchAddonRef.current.findNext(searchText, { caseSensitive: false });
+    if (activeTab?.searchAddon && searchText) {
+      activeTab.searchAddon.findNext(searchText, { caseSensitive: false });
     }
   };
 
   const findPrevious = () => {
-    if (searchAddonRef.current && searchText) {
-      searchAddonRef.current.findPrevious(searchText, { caseSensitive: false });
+    if (activeTab?.searchAddon && searchText) {
+      activeTab.searchAddon.findPrevious(searchText, { caseSensitive: false });
     }
   };
 
   // Refit terminal when size changes
   const refitTerminal = useCallback(() => {
-    if (fitAddonRef.current && termRef.current && termContainerRef.current) {
+    if (activeTab?.fitAddon && activeTab?.term && activeTab?.containerRef) {
       requestAnimationFrame(() => {
         setTimeout(() => {
           try {
-            fitAddonRef.current?.fit();
-            if (socket && termRef.current) {
-              socket.emit('resize', { rows: termRef.current.rows, cols: termRef.current.cols });
+            activeTab.fitAddon?.fit();
+            if (activeTab.socket && activeTab.term) {
+              activeTab.socket.emit('resize', { rows: activeTab.term.rows, cols: activeTab.term.cols });
             }
           } catch (e) {
             console.error('Refit error:', e);
@@ -575,7 +819,7 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
         }, 50);
       });
     }
-  }, [socket]);
+  }, [activeTab]);
 
   // Drag handlers
   const handleDragStart = (e: React.MouseEvent) => {
@@ -623,6 +867,8 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
       initialCardPos: { x: rect.left, y: rect.top },
     };
   };
+
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleResize = useCallback((e: MouseEvent) => {
     if (!isResizing || !resizeDirection.current || !isFloating || !resizeStartPos.current.initialCardPos) return;
@@ -674,12 +920,29 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
 
     setSize({ width: newWidth, height: newHeight });
     setPosition({ x: newX, y: newY });
-  }, [isResizing, isFloating]);
+
+    // Throttled refit during resize for better responsiveness
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+    }
+    resizeTimeoutRef.current = setTimeout(() => {
+      requestAnimationFrame(() => {
+        refitTerminal();
+      });
+    }, 50);
+  }, [isResizing, isFloating, refitTerminal]);
 
   const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
     resizeDirection.current = null;
-    refitTerminal();
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+      resizeTimeoutRef.current = null;
+    }
+    // Final refit after resize ends
+    requestAnimationFrame(() => {
+      setTimeout(() => refitTerminal(), 50);
+    });
   }, [refitTerminal]);
 
   // Mouse event listeners
@@ -707,10 +970,79 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
 
   // Refit when size changes
   useEffect(() => {
-    if (isFloating && isTerminalReady) {
+    if (isFloating && activeTab?.isReady) {
       refitTerminal();
     }
-  }, [size, isFloating, isTerminalReady, refitTerminal]);
+  }, [size, isFloating, activeTab?.isReady, refitTerminal]);
+  
+  // Update container visibility when active tab changes
+  useEffect(() => {
+    if (activeTabId) {
+      tabs.forEach(tab => {
+        const container = tabContainersRef.current.get(tab.id);
+        if (container) {
+          container.style.display = tab.id === activeTabId ? 'block' : 'none';
+        }
+      });
+      // Refit the active terminal
+      refitTerminal();
+    }
+  }, [activeTabId, tabs, refitTerminal]);
+  
+  // Keyboard shortcuts for tab management
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Shift+T: New tab
+      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        addTerminalTab();
+        return;
+      }
+      
+      // Ctrl+Shift+W: Close current tab
+      if (
+        e.ctrlKey &&
+        e.shiftKey &&
+        e.key === 'W' &&
+        activeTabId &&
+        tabs.length > 1 &&
+        !activeTabIsShared
+      ) {
+        e.preventDefault();
+        removeTerminalTab(activeTabId);
+        return;
+      }
+      
+      // Ctrl+Tab / Ctrl+Shift+Tab: Switch tabs
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+        const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+        if (e.shiftKey) {
+          // Previous tab
+          const prevIndex = currentIndex <= 0 ? tabs.length - 1 : currentIndex - 1;
+          switchToTab(tabs[prevIndex].id);
+        } else {
+          // Next tab
+          const nextIndex = (currentIndex + 1) % tabs.length;
+          switchToTab(tabs[nextIndex].id);
+        }
+        return;
+      }
+      
+      // Ctrl+1-9: Switch to specific tab
+      if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const tabIndex = parseInt(e.key) - 1;
+        if (tabIndex < tabs.length) {
+          switchToTab(tabs[tabIndex].id);
+        }
+        return;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tabs, activeTabId, activeTabIsShared, addTerminalTab, removeTerminalTab, switchToTab]);
 
   const toggleFloating = useCallback(() => {
     const newFloating = !isFloating;
@@ -800,15 +1132,57 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
           </div>
         </div>
       </CardHeader>
-      <CardContent className={`space-y-3 flex-1 overflow-hidden ${isFloating ? 'flex flex-col' : ''}`}>
+      <CardContent className={` flex-1 overflow-auto ${isFloating ? 'flex flex-col min-h-0' : ''}`}>
+        {/* Terminal Tabs Bar */}
+        <div className="flex items-center gap-1 flex-shrink-0 overflow-x-auto">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-t-md cursor-pointer transition-colors group ${
+                tab.id === activeTabId
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+              }`}
+              onClick={() => switchToTab(tab.id)}
+            >
+              <span className="text-sm font-medium whitespace-nowrap">{tab.name}</span>
+              {tabs.length > 1 && !tab.isShared && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTerminalTab(tab.id);
+                  }}
+                  className={`ml-1 p-0.5 rounded hover:bg-destructive/20 transition-colors ${
+                    tab.id === activeTabId ? 'hover:bg-primary-foreground/20' : ''
+                  }`}
+                  title="Close terminal"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addTerminalTab}
+            className="h-7 w-7 p-0 flex-shrink-0"
+            title="New terminal"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Terminal Container */}
         <div 
-          className={`rounded-lg border overflow-hidden ${isFloating ? '' : 'min-h-[400px]'}`}
+          className={`rounded-b-lg rounded-tr-lg mb-2 overflow-hidden ${isFloating ? 'flex-1 min-h-0' : 'min-h-[400px]'}`}
           style={{ 
-            height: isFloating ? 'auto' : isFullscreen ? '100vh' : '400px',
+            height: isFloating ? undefined : isFullscreen ? '100vh' : '400px',
+            minHeight: isFloating ? '200px' : '400px',
           }}
         >
           <div
-            ref={termContainerRef}
+            id="terminal-tabs-container"
             className="w-full h-full"
             style={{ 
               width: '100%',
@@ -817,6 +1191,8 @@ export function TerminalSection({ socket, isConnected, terminalTheme, headerActi
             }}
           />
         </div>
+        
+        {/* Search Bar */}
         <div className="flex gap-2 items-center flex-shrink-0">
           <Input
             placeholder="Search in terminal..."

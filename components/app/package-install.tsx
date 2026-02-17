@@ -81,7 +81,7 @@ export function PackageInstall({ socket }: PackageInstallProps) {
       index === self.findIndex((p) => p.name === pkg.name)
     );
     
-    return unique.slice(0, 20); // Limit to 20 results
+    return unique;
   };
 
   // Listen for search results

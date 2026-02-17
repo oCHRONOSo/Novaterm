@@ -382,6 +382,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Keep context state in sync so terminals created after this connect
+    // have access to the credentials immediately.
+    setIp(connectionWithPassword.ip);
+    setPort(connectionWithPassword.port);
+    setUsername(connectionWithPassword.username);
+    setPassword(connectionWithPassword.password || '');
+
     connect({
       ip: connectionWithPassword.ip,
       port: connectionWithPassword.port,

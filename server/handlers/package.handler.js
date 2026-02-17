@@ -37,7 +37,7 @@ class PackageHandler {
     const outputFile = tempFile.generate('pkg_search', 'txt');
     
     // Multi-distro search command
-    const searchCmd = `if command -v apt >/dev/null 2>&1; then apt search "${query}" 2>/dev/null | head -20 > "${outputFile}" 2>&1; elif command -v dnf >/dev/null 2>&1; then dnf search "${query}" 2>/dev/null | head -20 > "${outputFile}" 2>&1; elif command -v yum >/dev/null 2>&1; then yum search "${query}" 2>/dev/null | head -20 > "${outputFile}" 2>&1; else echo "No supported package manager found" > "${outputFile}"; fi`;
+    const searchCmd = `if command -v apt >/dev/null 2>&1; then apt search "${query}" 2>/dev/null > "${outputFile}" 2>&1; elif command -v dnf >/dev/null 2>&1; then dnf search "${query}" 2>/dev/null > "${outputFile}" 2>&1; elif command -v yum >/dev/null 2>&1; then yum search "${query}" 2>/dev/null > "${outputFile}" 2>&1; else echo "No supported package manager found" > "${outputFile}"; fi`;
 
     this.searchTempFile = outputFile;
     this.searchStartTime = Date.now();

@@ -59,10 +59,16 @@ const ffuf: Tool = {
       name: 'Virtual Host Discovery',
       level: 'intermediate',
       description: 'Find virtual hosts on a web server',
-      command: 'ffuf -u {url} -H "Host: FUZZ.{domain}" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt -c -fs {filter_size}',
+      command: 'ffuf -u {url} -H "Host: FUZZ.{domain}" -w {host_subdomain} -c -fs {filter_size}',
       args: [
         { name: 'url', placeholder: 'http://10.10.10.10', description: 'Target IP or URL', required: true, type: 'text' },
         { name: 'domain', placeholder: 'target.htb', description: 'Base domain for vhost fuzzing', required: true, type: 'text' },
+        { name: 'host_subdomain', placeholder: 'Select a subdomain wordlist', description: 'Subdomain wordlist used for Host header enumeration (FUZZ.{domain})', required: true, type: 'select', options: [
+          { value: '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt', label: 'SecLists: top1million-5000 (fast)' },
+          { value: '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-20000.txt', label: 'SecLists: top1million-20000 (balanced)' },
+          { value: '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt', label: 'SecLists: top1million-110000 (thorough)' },
+          { value: '/usr/share/wordlists/seclists/Discovery/DNS/bitquark-subdomains-top100000.txt', label: 'SecLists: bitquark top100k (alt source)' },
+        ], default: '/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt' },
         { name: 'filter_size', placeholder: '0', description: 'Filter responses by size (set after initial run)', required: true, type: 'text', default: '0' },
       ],
       notes: ['Run once without -fs to see default response size', 'Then filter out that size to find valid vhosts', 'Add target domain to /etc/hosts first'],
@@ -325,10 +331,118 @@ const nikto: Tool = {
   ],
 };
 
+const reconspider: Tool = {
+  id: 'reconspider',
+  name: 'ReconSpider',
+  description: 'Website spidering / endpoint discovery helper (Scrapy-based)',
+  longDescription: 'ReconSpider is a spidering helper commonly used to crawl a target site and extract endpoints, links, and interesting paths. This entry focuses on ensuring Scrapy is installed (a common missing dependency) and provides a couple of common run patterns; use Custom Command if your ReconSpider variant differs.',
+  installCmd: 'bash -lc "apt-get update && apt-get install -y python3 python3-pip && python3 -m pip install -U pip && python3 -m pip install --break-system-packages -U scrapy"',
+  checkCmd: 'bash -lc "python3 -c \\"import scrapy\\""',
+  documentation: 'https://docs.scrapy.org/en/latest/',
+  tips: [
+    'If you see "ModuleNotFoundError: scrapy", install Scrapy first (button above).',
+    'Many ReconSpider variants are either a Scrapy spider ("scrapy crawl reconspider ...") or a standalone CLI ("reconspider -u ...").',
+    'Start with shallow crawl depth, then increase if you need more coverage.',
+    'Export results to a file (-o) and grep for parameters, admin panels, and uploads.',
+  ],
+  presets: [
+    {
+      id: 'scrapy-crawl-json',
+      name: 'Scrapy Crawl (export JSON)',
+      level: 'basic',
+      description: 'Run a Scrapy spider named "reconspider" and export results',
+      command: 'scrapy crawl reconspider -a url="{url}" -o {output}',
+      args: [
+        { name: 'url', placeholder: 'https://target.tld', description: 'Target base URL', required: true, type: 'text' },
+        { name: 'output', placeholder: '/tmp/reconspider.json', description: 'Output file path (json/csv depending on extension)', required: true, type: 'text', default: '/tmp/reconspider.json' },
+      ],
+      notes: [
+        'This assumes your remote host has a Scrapy project that defines a spider named "reconspider".',
+        'If your spider uses a different arg name (e.g. start_url), switch to Custom Command.',
+      ],
+    },
+    {
+      id: 'scrapy-crawl-depth',
+      name: 'Scrapy Crawl (set depth)',
+      level: 'intermediate',
+      description: 'Run reconspider and control crawl depth via setting',
+      command: 'scrapy crawl reconspider -a url="{url}" -s DEPTH_LIMIT={depth} -o {output}',
+      args: [
+        { name: 'url', placeholder: 'https://target.tld', description: 'Target base URL', required: true, type: 'text' },
+        { name: 'depth', placeholder: '2', description: 'Crawl depth limit', required: true, type: 'select', options: [
+          { value: '1', label: 'Depth 1 (shallow)' },
+          { value: '2', label: 'Depth 2 (recommended)' },
+          { value: '3', label: 'Depth 3 (deeper)' },
+          { value: '4', label: 'Depth 4 (aggressive)' },
+        ], default: '2' },
+        { name: 'output', placeholder: '/tmp/reconspider.json', description: 'Output file path', required: true, type: 'text', default: '/tmp/reconspider.json' },
+      ],
+      tips: ['If the crawl is too slow/noisy, lower depth and add URL allow/deny patterns in your spider config.'],
+    },
+    {
+      id: 'cli-url',
+      name: 'CLI Mode (if installed)',
+      level: 'intermediate',
+      description: 'Run ReconSpider as a standalone CLI (common pattern)',
+      command: 'reconspider -u "{url}"',
+      args: [
+        { name: 'url', placeholder: 'https://target.tld', description: 'Target URL', required: true, type: 'text' },
+      ],
+      notes: ['Only works if your environment provides a reconspider CLI with -u support. Otherwise use Custom Command.'],
+    },
+  ],
+};
+
+const reconNg: Tool = {
+  id: 'recon-ng',
+  name: 'Recon-ng',
+  description: 'Web recon framework (resource-script friendly)',
+  longDescription: 'Recon-ng is a reconnaissance framework. It is typically interactive, but it can be automated using resource scripts (recon-ng -r) which makes it usable from this UI.',
+  installCmd: 'bash -lc "apt-get update && (apt-get install -y recon-ng || (apt-get install -y python3 python3-pip && python3 -m pip install -U pip && python3 -m pip install --break-system-packages -U recon-ng))"',
+  checkCmd: 'command -v recon-ng',
+  documentation: 'https://github.com/lanmaster53/recon-ng',
+  tips: [
+    'Recon-ng is best run via resource scripts (-r) so it can exit cleanly.',
+    'Many modules require API keys; set them in recon-ng before running modules.',
+    'If a preset fails due to missing modules/workspace, use Custom Command and adapt the resource commands for your environment.',
+  ],
+  presets: [
+    {
+      id: 'version',
+      name: 'Version / Help',
+      level: 'basic',
+      description: 'Quick sanity check that recon-ng runs',
+      command: 'recon-ng --help',
+      args: [],
+      notes: ['Recon-ng is primarily interactive; use the resource-script presets for automation.'],
+    },
+    {
+      id: 'resource-workspaces-list',
+      name: 'List Workspaces (resource script)',
+      level: 'basic',
+      description: 'Runs a minimal resource script and exits',
+      command: 'bash -lc "printf \'workspaces list\\nexit\\n\' > /tmp/reconng.rc && recon-ng -r /tmp/reconng.rc"',
+      args: [],
+      notes: ['Uses /tmp/reconng.rc on the remote host.'],
+    },
+    {
+      id: 'resource-create-workspace',
+      name: 'Create Workspace (resource script)',
+      level: 'intermediate',
+      description: 'Creates/selects a workspace and exits',
+      command: 'bash -lc "printf \'workspaces create {workspace}\\nworkspaces select {workspace}\\nexit\\n\' > /tmp/reconng.rc && recon-ng -r /tmp/reconng.rc"',
+      args: [
+        { name: 'workspace', placeholder: 'ctf', description: 'Recon-ng workspace name', required: true, type: 'text', default: 'ctf' },
+      ],
+      notes: ['If workspace already exists, Recon-ng may warn; you can still select it.'],
+    },
+  ],
+};
+
 export default function WebToolsPage() {
   const [selectedTool, setSelectedTool] = useState<string>('ffuf');
 
-  const tools: Record<string, Tool> = { ffuf, sqlmap, nikto };
+  const tools: Record<string, Tool> = { ffuf, sqlmap, nikto, reconspider, 'recon-ng': reconNg };
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-6">
@@ -354,6 +468,8 @@ export default function WebToolsPage() {
           <TabsTrigger value="ffuf">ffuf</TabsTrigger>
           <TabsTrigger value="sqlmap">SQLMap</TabsTrigger>
           <TabsTrigger value="nikto">Nikto</TabsTrigger>
+          <TabsTrigger value="reconspider">ReconSpider</TabsTrigger>
+          <TabsTrigger value="recon-ng">Recon-ng</TabsTrigger>
         </TabsList>
         
         {Object.entries(tools).map(([id, tool]) => (

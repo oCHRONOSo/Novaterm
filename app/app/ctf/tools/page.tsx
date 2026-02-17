@@ -51,7 +51,7 @@ const categories = [
     bgColor: 'bg-primary/10',
     borderColor: 'border-primary/30',
     href: '/app/ctf/tools/web',
-    tools: ['ffuf', 'SQLMap', 'Nikto'],
+    tools: ['ffuf', 'SQLMap', 'Nikto', 'ReconSpider', 'Recon-ng'],
     highlights: [
       'Directory & parameter fuzzing',
       'SQL injection automation',
@@ -142,6 +142,23 @@ const categories = [
       'Exploit database search',
       'Payload generation',
       'Post-exploitation',
+    ],
+  },
+  {
+    id: 'fingerprinting',
+    name: 'Service Fingerprinting',
+    description: 'Focused service enumeration and light brute-force helpers',
+    icon: Crosshair,
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
+    href: '/app/ctf/tools/fingerprinting',
+    tools: ['Nmap', 'Hydra', 'enum4linux'],
+    highlights: [
+      'Service-specific enumeration presets',
+      'Non-destructive fingerprinting commands',
+      'Optional targeted bruteforce helpers',
+      'Output integrated into Main terminal',
     ],
   },
 ];
